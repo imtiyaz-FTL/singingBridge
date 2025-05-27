@@ -101,7 +101,12 @@ const register_user = async (req, role, res) => {
     }
 
    
-
+ if (password !== confirmPassword) {
+      return res.status(400).send({
+        success: false,
+        message: "Password and confirm password do not match",
+      });
+    }
    
     // Create new user
     const user = new User({
