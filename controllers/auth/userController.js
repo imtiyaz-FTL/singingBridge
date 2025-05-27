@@ -108,6 +108,7 @@ const register_user = async (req, role, res) => {
       });
     }
    
+    
     // Create new user
     const user = new User({
       name,
