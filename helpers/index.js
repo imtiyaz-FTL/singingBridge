@@ -9,10 +9,7 @@ const registerValidator = [
     .notEmpty()
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters long"),
-  check("mobile", "Mobile number is required")
-    .notEmpty()
-    .isLength({ min: 10, max: 10 })
-    .withMessage("Mobile number length should be 10 digits"),
+ 
 ];
 
 

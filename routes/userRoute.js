@@ -10,7 +10,9 @@ const {
   register_admin,
   update_password,
   update_profile,
+  uploadProfileImage,
   forgot_password,
+  getProfile,
   reset_password,
   resend_otp,
   get_all_user,
@@ -30,7 +32,7 @@ userDeleteWhileLoggedIn,
 googleCallback
 } = require("../controllers/auth/userController");
 const {
-  // registerValidator,
+   registerValidator,
   loginValidator,
   updatePassword,
   updateProfile,
@@ -80,7 +82,7 @@ userRoute.get('/ping', (req, res) => {
 
 //register user
 // upload.single("image"),
-userRoute.post("/register",(req, res) => register_user(req, "user", res));
+userRoute.post("/register",registerValidator,(req, res) => register_user(req, "user", res));
 
  //register admin
 userRoute.post(
@@ -110,7 +112,9 @@ userRoute.get("/profile", user_auth, async (req, res) => {
 });
 
 // Add more routes here...
-
+userRoute.get("/getProfile", user_auth, async (req, res) => {
+ getProfile(req,"user", res)
+});
 //update-password
 userRoute.post("/update-password", user_auth, updatePassword, (req, res) =>
   update_password(req, res)
@@ -122,8 +126,14 @@ userRoute.post(
   "/update-profile-user",
   user_auth,
   upload.single("image"),
-  updateProfile,
-  (req, res) => update_profile(req, "user", res)
+  (req, res) => uploadProfileImage(req, "user", res)
+);
+
+userRoute.post(
+  "/update-profileImage",
+  user_auth,
+  upload.single("image"),
+  (req, res) => uploadProfileImage(req, "user", res)
 );
 
 //update-profile-admin

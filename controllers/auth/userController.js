@@ -9,6 +9,7 @@ const nodemailer = require("nodemailer");
 // const Wallet=require("../../models/walletModel")
 const { check, validationResult } = require("express-validator");
 const axios = require("axios");
+const { v4: uuidv4 } = require("uuid"); // For generating unique IDs
 //send email
 const sendResetPasswordMail = async (name, email, otp) => {
   try {
@@ -70,21 +71,21 @@ const register_user = async (req, role, res) => {
     console.log(req.body, "Request Body");
 
     // Validate request
-    // const errors = validationResult(req);
-    // if (!errors.isEmpty()) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Validation error",
-    //     errors: errors.array(),
-    //   });
-    // }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: errors.array(),
+      });
+    }
 
     // Secure the password
     const spassword = await securePassword(req.body.password);
     // console.log(spassword, "Secured Password");
 
     // Destructure request body
-    const { name, mobile,  password, email, deviceId ,confirmPassword} = req.body;
+    const { name, mobile,  password, email,confirmPassword,inviteCode} = req.body;
 
     // Check for required fields
     if (!password || !name || !email || !confirmPassword  ) {
@@ -108,21 +109,18 @@ const register_user = async (req, role, res) => {
       });
     }
    
-    
+    let deviceId = uuidv4(); // Generate a unique device ID
     // Create new user
     const user = new User({
       name,
       email,
       mobile,
-     
       password: spassword,
-      confirmPassword: spassword, // Assuming confirmPassword is the same as password
-    
+      confirmPassword: spassword, // Assuming confirmPassword is the same as passwor
       role,
-      
       online: true,
       lastActivity: new Date(),
-     
+     inviteCode: inviteCode , // Generate a unique invite code if not provided
       deviceId:deviceId,
       isLoggedIn:true
     });
@@ -133,16 +131,12 @@ const register_user = async (req, role, res) => {
     await user_data.save();
 
     const tokenData = await creat_token(user_data._id, user_data.role, user_data.email);
-
-   
-
     const userResult = {
       _id: user_data._id,
       role: user_data.role,
       email: user_data.email,
       name: user_data.name,
       mobile: user_data.mobile,
-     
       token: `Bearer ${tokenData}`,
       deviceId:user_data.deviceId,
       isLoggedIn:true,
@@ -155,7 +149,11 @@ const register_user = async (req, role, res) => {
       data: userResult,
     };
 
-    res.status(200).send(res_data);
+    res.status(200).json({
+      success: true,
+      message: "User registered successfully",
+      data: res_data,
+    });
   } catch (error) {
     return res.status(400).send({ success: false, message: error.message });
   }
@@ -220,7 +218,7 @@ const login_user = (async (req, role, res) => {
 
     const email = req.body.email;
     const password = req.body.password;
-    const deviceId=req.body.deviceId
+    // const deviceId=req.body.deviceId
 
     const userData = await User.findOne({ email: email });
 
@@ -252,7 +250,7 @@ const login_user = (async (req, role, res) => {
         );
         const updatedUser = await User.findByIdAndUpdate(
           userData._id,
-          { deviceId: deviceId,isLoggedIn:true },
+          { isLoggedIn:true , deviceId: userData.deviceId || uuidv4() }, // Ensure deviceId is set
           { new: true } // Return the updated user document
         );
         const userResult = {
@@ -262,10 +260,6 @@ const login_user = (async (req, role, res) => {
           name: userData.name,
           mobile: userData.mobile,
           // image: imageUrl,
-          countryIcon: userData.countryIcon,
-          country:userData.country,
-         dynamoCoin:userData.dynamoCoin,
-         Rating: userData.rating,
           token: `Bearer ${tokenData}`,
           deviceId: updatedUser.deviceId,
         };
@@ -329,6 +323,7 @@ const update_password = async (req, res) => {
           {
             $set: {
               password: newpassword,
+              confirmPassword: newpassword, // Assuming confirmPassword is the same as password
             },
           }
         );
@@ -390,13 +385,13 @@ const update_profile = async (req, role, res) => {
     }
 
     // Update user information
-    const { name, mobile, profileInf,country } = req.body;
+    const { name, mobile,email } = req.body;
 
     // Optional: Validate and sanitize inputs
-    if (!name || !mobile) {
+    if (!name || !mobile || !email) {
       return res.status(400).json({
         success: false,
-        message: "Name and mobile are required fields",
+        message: "Name and mobile email are required fields",
       });
     }
 
@@ -423,7 +418,63 @@ const update_profile = async (req, role, res) => {
     });
   }
 };
+const uploadProfileImage = async (req,role, res) => {
+  try {
+    const userId = req.user._id; // set by your auth middleware
+    const userData = await User.findById(userId);
+console.log("kkkkkkkkkk")
+    if (!userData) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
+    if (userData.role !== "user" && userData.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image uploaded" });
+    }
+
+    // Save the image filename
+    userData.profilePic = req.file.filename;
+    await userData.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile image updated successfully",
+      data: {
+        _id: userData._id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        profilePic: userData.profilePic,
+        profilePicUrl: `${req.protocol}://${req.get("host")}/uploads/${userData.profilePic}`,
+      },
+    });
+  } catch (error) {
+    console.log("kkkkkkkkkk")
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+getProfile=async(req,role,res)=>{
+  try {
+    const userId = req.user._id; // set by your auth middleware
+    const userData = await User.findById(userId).select("-password -otp -confirmPassword");
+    console.log(userData,"kkkkk")
+    
+    if (!userData) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: "User profile fetched successfully",
+      data: userData,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
 //forgot_password
 const forgot_password = async (req, res) => {
   try {
@@ -551,9 +602,6 @@ const resend_otp = async (req, res) => {
     res.status(400).send({ success: false, message: error.message });
   }
 };
-
-
-
 //get_all_user
 const get_all_user = async (req, res) => {
   try {
@@ -986,5 +1034,7 @@ updateUserCoinOrrating,
 updateAllUsersIsLoggedIn,
 updateAlluserDeviceId,
 logout,
-googleCallback
+googleCallback,
+uploadProfileImage,
+getProfile
 };

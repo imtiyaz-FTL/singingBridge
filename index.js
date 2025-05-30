@@ -10,26 +10,21 @@ const http = require("http");
 const server = http.createServer(app);
 const User = require("./models/userModel");
 const cron = require("node-cron");
-
-
 const { v4: uuidv4 } = require("uuid"); // For generating unique IDs
 const session = require("express-session");
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(passport.initialize());
 app.use("/public", express.static("public"));
-
 app.use(session({
   secret: 'your_secret_key',
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false } // Set to true if using HTTPS
 }));
-
 app.use(passport.session())
-
-
 require("./middleware/passport")(passport);
 require('./middleware/authenticate');
 app.get("/ping", (req, res) => {
