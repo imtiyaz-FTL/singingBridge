@@ -926,6 +926,7 @@ const logout=async(req,res)=>{
       { new: true } // Return the updated document
     );
 
+    
     // If the user is not found
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
