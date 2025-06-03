@@ -457,11 +457,13 @@ console.log("kkkkkkkkkk")
   }
 };
 
-getProfile=async(req,role,res)=>{
+const getProfile=async(req,role,res)=>{
   try {
     const userId = req.user._id; // set by your auth middleware
     const userData = await User.findById(userId).select("-password -otp -confirmPassword");
     console.log(userData,"kkkkk")
+   userData.profilePic= `${req.protocol}://${req.get("host")}/uploads/${userData.profilePic}`
+   await userData.save();
     
     if (!userData) {
       return res.status(404).json({ success: false, message: "User not found" });
