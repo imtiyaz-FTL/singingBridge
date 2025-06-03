@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 const passport = require("passport");
 const axios = require("axios");
 const http = require("http");
+const socketIo = require("socket.io");
 const server = http.createServer(app);
 const User = require("./models/userModel");
 const cron = require("node-cron");
@@ -36,8 +37,10 @@ app.get("/", (req, res) => {
 const user_routes = require("./routes/userRoute");
 
 const bannerRoute = require("./routes/bannerRoutes");
-const e = require("express");
 
+const io = socketIo(server, {
+  cors: { origin: "*" }
+});
 
 //user_routes
 app.use("/", user_routes);
@@ -49,6 +52,88 @@ app.use((err, req, res, next) => {
   res.status(500).send("Something broke!");
 })
 
+
+// In-memory map to track online users: userId -> socketId
+const onlineUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("New socket connected:", socket.id);
+
+socket.on("user-online", async (body) => {
+  const { userId } = body;
+  onlineUsers.set(userId, socket.id);
+  console.log(`User ${userId} is online.`);
+
+  // Update status in DB
+  await User.findByIdAndUpdate(userId, {
+    online: true,
+    lastActivity: new Date(),
+  });
+
+  // Fetch all online users
+  let onlineUserData = await User.aggregate([
+    {
+      $match: {
+        online: true,
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        userId: "$_id", // Include userId explicitly for filtering
+        name: 1,
+        profilePic: 1,
+        online: 1,
+        lastActivity: 1,
+      },
+    },
+  ]);
+
+  // Filter out the current user from the list
+  onlineUserData = onlineUserData.filter(
+    (user) => String(user.userId) !== String(userId)
+  );
+
+  // Send updated list (excluding this user)
+  io.emit("update-online-users", onlineUserData);
+});
+
+
+
+  socket.on("disconnect", async () => {
+    const disconnectedUserId = [...onlineUsers.entries()].find(([_, id]) => id === socket.id)?.[0];
+
+    if (disconnectedUserId) {
+      onlineUsers.delete(disconnectedUserId);
+
+      await User.findByIdAndUpdate(disconnectedUserId, {
+        online: false,
+        lastActivity: new Date()
+      });
+
+        const onlineUserData=await User.aggregate([
+    {
+      $match:{
+        online: true,
+      }
+    },
+    {
+      $project:{
+        _id: 0,
+        name: 1,
+        profilePic: 1,
+        online: 1,
+        lastActivity: 1
+      }
+    }
+  ])
+
+
+      io.emit("update-online-users", onlineUserData);
+      console.log(`User ${disconnectedUserId} is offline.`);
+    }
+  });
+});
 
 
 
