@@ -448,7 +448,7 @@ console.log("kkkkkkkkkk")
         name: userData.name,
         role: userData.role,
         profilePic: userData.profilePic,
-        profilePicUrl: `${req.protocol}://${req.get("host")}/uploads/${userData.profilePic}`,
+        profilePicUrl: `${req.protocol}://${req.get("host")}/public/userImages/${userData.profilePic}`,
       },
     });
   } catch (error) {
@@ -462,7 +462,7 @@ const getProfile=async(req,role,res)=>{
     const userId = req.user._id; // set by your auth middleware
     const userData = await User.findById(userId).select("-password -otp -confirmPassword");
     console.log(userData,"kkkkk")
-   userData.profilePic= `${req.protocol}://${req.get("host")}/uploads/${userData.profilePic}`
+   userData.profilePic= `${req.protocol}://${req.get("host")}/public/userImages/${userData.profilePic}`
    await userData.save();
     
     if (!userData) {
