@@ -615,18 +615,29 @@ const resend_otp = async (req, res) => {
 //get_all_user
 const get_all_user = async (req, res) => {
   try {
-    // console.log("kkkkkkkkkkkkkkkkkkkkkk")
     const users = await User.find({ role: "user" }).select(
-      "-password -role -otp"
+      "-password -role -otp -confirmPassword"
     );
+
+    const baseUrl = `${req.protocol}://${req.get("host")}/public/userImages/`;
+
+    const modifiedUsers = users.map((user) => {
+      const userObj = user.toObject();
+      if (userObj.profilePic && !userObj.profilePic.startsWith("http")) {
+        userObj.profilePic = baseUrl + userObj.profilePic;
+      }
+      return userObj;
+    });
+
     res.status(200).send({
       success: true,
-      data: users,
+      data: modifiedUsers,
     });
   } catch (error) {
     res.status(400).send({ success: false, message: error.message });
   }
 };
+
 
 const get_all_admin = async (req, res) => {
   try {
