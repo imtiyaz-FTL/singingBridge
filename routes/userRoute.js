@@ -29,7 +29,8 @@ updateAllUsersIsLoggedIn,
 updateAlluserDeviceId,
 logout,
 userDeleteWhileLoggedIn,
-googleCallback
+googleCallback,
+getProfileById
 } = require("../controllers/auth/userController");
 const {
    registerValidator,
@@ -168,8 +169,8 @@ userRoute.get(
 );
 //get_user_by_id
 userRoute.get(
-  "/get_user_by_id/:userId",
-  async (req, res) => get_user_by_id(req, res)
+  "/getProfileById/:userId",
+  async (req, res) => getProfileById(req, res)
 );
 //get all admin
 userRoute.get(

@@ -638,6 +638,37 @@ const get_all_user = async (req, res) => {
   }
 };
 
+const getProfileById = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Find user by ID, excluding sensitive fields
+    const user = await User.findById(userId).select(
+      "-password -otp -confirmPassword"
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Convert to plain object to safely modify
+    const userObj = user.toObject();
+
+    // Construct full profilePic URL if needed
+    if (userObj.profilePic && !userObj.profilePic.startsWith("http")) {
+      userObj.profilePic = `${req.protocol}://${req.get("host")}/public/userImages/${userObj.profilePic}`;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: userObj,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
 
 const get_all_admin = async (req, res) => {
   try {
@@ -1058,5 +1089,6 @@ updateAlluserDeviceId,
 logout,
 googleCallback,
 uploadProfileImage,
-getProfile
+getProfile,
+getProfileById
 };
