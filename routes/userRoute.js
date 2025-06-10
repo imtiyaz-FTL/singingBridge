@@ -30,6 +30,7 @@ updateAlluserDeviceId,
 logout,
 userDeleteWhileLoggedIn,
 googleCallback,
+update_user_Profile,
 getProfileById
 } = require("../controllers/auth/userController");
 const {
@@ -121,7 +122,12 @@ userRoute.post("/update-password", user_auth, updatePassword, (req, res) =>
   update_password(req, res)
 );
 
-//update-profile-user
+// update user profile  
+userRoute.post("/update_user_Profile", user_auth, updatePassword, (req, res) =>
+  update_user_Profile(req, res)
+);
+
+//update-profile-user-image
 
 userRoute.post(
   "/update-profile-user",

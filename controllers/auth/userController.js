@@ -457,6 +457,87 @@ console.log("kkkkkkkkkk")
   }
 };
 
+const update_user_Profile = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: errors.array(),
+      });
+    }
+
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
+    const userData = await User.findById(userId);
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Role check if needed
+    if (req.role && userData.role !== req.role) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: insufficient permissions",
+      });
+    }
+
+    const { name, mobile, email, oldPassword, newPassword } = req.body;
+
+    // --- Profile update logic ---
+    if (name) userData.name = name;
+    if (mobile) userData.mobile = mobile;
+    if (email) userData.email = email;
+   
+   
+
+    // --- Password update logic ---
+    if (oldPassword && newPassword) {
+      const isMatch = await bcryptjs.compare(oldPassword, userData.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          success: false,
+          message: "Old password is incorrect",
+        });
+      }
+      const hashedPassword = await securePassword(newPassword);
+      userData.password = hashedPassword;
+      userData.confirmPassword = hashedPassword; // if required
+    } else if (oldPassword || newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Both oldPassword and newPassword are required to change the password",
+      });
+    }
+
+    await userData.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      user: userData,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while updating user",
+      error: error.message,
+    });
+  }
+};
+
+
 const getProfile = async (req, role, res) => {
   try {
     const userId = req.user._id;
@@ -1090,5 +1171,6 @@ logout,
 googleCallback,
 uploadProfileImage,
 getProfile,
-getProfileById
+getProfileById,
+update_user_Profile
 };
