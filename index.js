@@ -54,33 +54,33 @@ app.use((err, req, res, next) => {
 
 
 // In-memory map to track online users: userId -> socketId
-const onlineUsers = new Map();
+const onlineUsers = new Map(); // Map<userId, Set<socketId>>
+
 
 io.on("connection", (socket) => {
   console.log("New socket connected:", socket.id);
 
-socket.on("user-online", async (body) => {
-  const { userId } = body;
-  onlineUsers.set(userId, socket.id);
-  console.log(`User ${userId} is online.`);
+socket.on("user-online", async ({ userId }) => {
+  // Add socket ID to the user's Set
+  if (onlineUsers.has(userId)) {
+    onlineUsers.get(userId).add(socket.id);
+  } else {
+    onlineUsers.set(userId, new Set([socket.id]));
 
-  // Update status in DB
-  await User.findByIdAndUpdate(userId, {
-    online: true,
-    lastActivity: new Date(),
-  });
+    // Only update DB when first tab connects
+    await User.findByIdAndUpdate(userId, {
+      online: true,
+      lastActivity: new Date(),
+    });
+  }
 
-  // Fetch all online users
+  // Get all online users (excluding this user if needed)
   let onlineUserData = await User.aggregate([
-    {
-      $match: {
-        online: true,
-      },
-    },
+    { $match: { online: true } },
     {
       $project: {
+        userId: "$_id",
         _id: 0,
-        userId: "$_id", // Include userId explicitly for filtering
         name: 1,
         profilePic: 1,
         online: 1,
@@ -89,50 +89,51 @@ socket.on("user-online", async (body) => {
     },
   ]);
 
-  // Filter out the current user from the list
-  onlineUserData = onlineUserData.filter(
-    (user) => String(user.userId) !== String(userId)
-  );
+  // Optional: Exclude this user
+  onlineUserData = onlineUserData.filter(u => String(u.userId) !== String(userId));
 
-  // Send updated list (excluding this user)
   io.emit("update-online-users", onlineUserData);
 });
 
 
 
-  socket.on("disconnect", async () => {
-    const disconnectedUserId = [...onlineUsers.entries()].find(([_, id]) => id === socket.id)?.[0];
 
-    if (disconnectedUserId) {
-      onlineUsers.delete(disconnectedUserId);
 
-      await User.findByIdAndUpdate(disconnectedUserId, {
+socket.on("disconnect", async () => {
+  for (const [userId, socketSet] of onlineUsers.entries()) {
+    socketSet.delete(socket.id);
+
+    if (socketSet.size === 0) {
+      // All tabs/devices disconnected
+      onlineUsers.delete(userId);
+
+      await User.findByIdAndUpdate(userId, {
         online: false,
-        lastActivity: new Date()
+        lastActivity: new Date(),
       });
 
-        const onlineUserData=await User.aggregate([
-    {
-      $match:{
-        online: true,
-      }
-    },
-    {
-      $project:{
-        _id: 0,
-        name: 1,
-        profilePic: 1,
-        online: 1,
-        lastActivity: 1
-      }
-    }
-  ])
-
+      // Broadcast updated list
+      const onlineUserData = await User.aggregate([
+        { $match: { online: true } },
+        {
+          $project: {
+            userId: "$_id",
+            _id: 0,
+            name: 1,
+            profilePic: 1,
+            online: 1,
+            lastActivity: 1,
+          },
+        },
+      ]);
 
       io.emit("update-online-users", onlineUserData);
-      console.log(`User ${disconnectedUserId} is offline.`);
     }
-  });
+
+    break; // Only one user can have this socket.id
+  }
+});
+
 });
 
 

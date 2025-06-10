@@ -457,26 +457,34 @@ console.log("kkkkkkkkkk")
   }
 };
 
-const getProfile=async(req,role,res)=>{
+const getProfile = async (req, role, res) => {
   try {
-    const userId = req.user._id; // set by your auth middleware
-    const userData = await User.findById(userId).select("-password -otp -confirmPassword");
-    console.log(userData,"kkkkk")
-   userData.profilePic= `${req.protocol}://${req.get("host")}/public/userImages/${userData.profilePic}`
-   await userData.save();
-    
+    const userId = req.user._id;
+
+    let userData = await User.findById(userId).select("-password -otp -confirmPassword");
+
     if (!userData) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+
+    // Create a copy so we don't mutate the original in DB
+    const userDataObj = userData.toObject();
+
+    // Only modify the returned object, not the saved DB record
+    if (userDataObj.profilePic && !userDataObj.profilePic.startsWith("http")) {
+      userDataObj.profilePic = `${req.protocol}://${req.get("host")}/public/userImages/${userDataObj.profilePic}`;
+    }
+
     res.status(200).json({
       success: true,
       message: "User profile fetched successfully",
-      data: userData,
+      data: userDataObj,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-}
+};
+
 //forgot_password
 const forgot_password = async (req, res) => {
   try {
